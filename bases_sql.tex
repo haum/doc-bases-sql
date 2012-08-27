@@ -1,0 +1,881 @@
+\documentclass[a4paper, 11pt]{report}
+    \usepackage[utf8]{inputenc}
+    \usepackage[T1]{fontenc}
+    \usepackage[french]{babel}
+    \usepackage{url}
+
+    \usepackage{fancyhdr}
+    \lhead{}
+    \chead{}
+    \rhead{\bfseries SQL : Bases}
+    \lfoot{[MG]}
+    \cfoot{HAUM - 2012}
+    \rfoot{\thepage}
+    \renewcommand{\headrulewidth}{0.4pt}
+    \renewcommand{\footrulewidth}{0.4pt}
+
+    \title{SQL: Bases}
+    \author{Mathieu Gaborit \and HAUM}
+    \date{Août 2012}
+
+    \newcommand\SQL{{\bfseries SQL}}
+    \newcommand\pk{\texttt{Primay Key}}
+    \newcommand\http[1]{\footnote{\url{#1}}}
+    \newcommand\sep{\noindent\rule{\linewidth}{.5pt}}
+
+\begin{document}
+    \pagestyle{fancy}
+    \maketitle
+
+    \tableofcontents\newpage
+
+    % Introduction {{{
+    \section*{Introduction}
+
+Mise à part la vanne stupide du titre, ce document est (à peu près) sérieux.
+
+En quoi le titre comporte-t-il une vanne ? Eh bien, nous allons parler des bases du SQL, un langage permettant d'interagir avec les bases de données (vous la comprenez maintenant hein ?).
+
+Ce document n'es {\bf en aucun cas un cours}.
+Tout au plus une introduction sommaire à un langage pouvant s'avérer complexe et utilisé un peu partout.
+
+\subsection*{Ce qu'on va faire}
+
+On abordera les notions principales :
+
+\begin{itemize}
+    \item Connexion au serveur SQL/SGDB
+    \item Création de DB simples et de tables
+    \item Opérations {\bfseries CRUD} \footnote{{\bfseries CR}eate {\bfseries U}pdate {\bfseries D}elete}
+    \item Peut être un peu de jointures entre tables
+\end{itemize}
+
+\subsection*{Ce qu'on ne \underline{fera pas}}
+
+\begin{itemize}
+    \item Modélisation de DB au sens propre
+    \item D'admin pure et dure de serveur SQL
+    \item L'explication du fonctionnement interne d'une DB et de son moteur de stockage
+    \item pleins d'autres truc très intéressants\footnote{des gateaux au chocolat par exemple}
+\end{itemize}
+
+% }}}
+% SQL: kézaco ? {{{
+\section{SQL : kézaco ?}
+
+Le \SQL est un langage apparu dans les années 1970, il est dédiée à l'interaction avec des bases de données {\bfseries relationnelles}.
+\SQL signifie {\bfseries S}tructured {\bfseries Q}uery {\bfseries L}anguage, soit en français dans le texte : Langage de Requête Structurée.
+
+Le langage lui-même peut se décomposer en deux parties : une destinée à gérer les données elles-même et l'autre à administrer la DB\footnote{DB, database et base de données seront utilisés indifféremment} hôtesse.
+
+Nous utiliserons dans les tests SQLite\http{http://sqlite.org/} qui est un programme pouvant gérer les DB relationnelles sans problème.
+Les principaux avantages sont que :
+
+\begin{itemize}
+    \item il tourne partout
+    \item il est complet et très léger
+    \item il ne demande  {\bfseries aucune} configuration
+    \item les DB sont conservées dans un seul et unique fichier
+\end{itemize}
+% }}}
+% Instalation de SQLite {{{
+\section{Installation de SQLite}
+
+Vous trouverez tous les liens utiles sur la page de téléchargement\http{http://sqlite.org/download.html} mais il existe aussi des paquets pour la plupart des distributions linux principales, ainsi, vous pourrez l'installer via :
+
+\begin{verbatim}
+$ sudo apt-get install sqlite3
+\end{verbatim}
+
+Sous Ubuntu et Debian et :
+
+\begin{verbatim}
+$ sudo pacman -S sqlite
+\end{verbatim}
+
+sous ArchLinux.
+
+Si vraiment vous voulez aller plus loin, vous trouverez le code source de SQLite en ligne et pourrez donc le lire/modifier ou le compiler.
+
+Notez que SQLite est à utiliser en ligne de commande (y compris sous Windows et MacOS).
+Nous utiliserons une version >3.0.0 de SQLite.
+
+Enfin, sachez divers outils existent pour faire joujou avec les DB dont SQlite Manager\http{https://addons.mozilla.org/fr/firefox/addon/sqlite-manager/} pour Firefox.
+
+% }}}
+'% La base de la base : SELECT {{{
+\section{La base de la base : \texttt{SELECT}}
+
+La partie la plus utilisée des bases de données est quand même l'accès aux données elles-même.
+
+Le mot clé \texttt{SELECT} permet de récupérer un ou plusieurs champs d'une table en fonction de critères.
+Avant de voir comment s'en servir (patience jeune padawan) nous allons détailler un peu le vocabulaire (voir la figure~\ref{schemaDB}).
+
+\begin{figure}[!t]
+\begin{verbatim}
++----------------+---------------------------------------------------+
+|Base de données |                                                   |
++----------------+                                                   |
+|                                                                    |
+|  +-------+----------+  +-------+----------+  +-------+----------+  |
+|  |Table 0|          |  |Table 1|          |  |Table 2|          |  |
+|  +-------+          |  +-------+          |  +-------+          |  |
+|  |                  |  |                  |  |                  |  |
+|  |  * champ 0       |  |  * champ 0       |  |  * champ 0       |  |
+|  |  * champ 1       |  |  * champ 1       |  |  * champ 1       |  |
+|  |  * champ 2       |  |  * champ 2       |  |  * champ 2       |  |
+|  |  * champ 3       |  |  * champ 3       |  |  * champ 3       |  |
+|  |  * champ 4       |  |  * champ 4       |  |  * champ 4       |  |
+|  |  * champ 4       |  |  * champ 4       |  |  * champ 4       |  |
+|  |                  |  |                  |  |                  |  |
+|  +------------------+  +------------------+  +------------------+  |
+|                                                                    |
++--------------------------------------------------------------------+
+\end{verbatim}
+\caption{Schema DB/Table/Champ}
+\label{schemaDB}
+\end{figure}
+
+On note qu'une même DB pourra contenir plusieurs tables elles-même pouvant contenir plusieurs champs.
+Pour faire un parallèle simple avec le tableur :
+
+\begin{itemize}
+    \item Les DB sont des fichiers
+    \item Les tables sont des tableaux
+    \item Les champs sont les colonnes
+    \item Chaque entrée d'une table est une ligne du tableau
+\end{itemize}
+
+La plupart du temps un de ces champs est unique pour la table et sert donc de clé primaire pour y accèder (\texttt{PRIMARY KEY}, parfois abrégé \pk).
+
+Cette \pk est rtès utile pour identifier une ligne de manière unique, le champ servant de \pk est défini au moment de la création de la table elle même (voir la section~\ref{sub:CréaTABLE} en page~\pageref{sub:CréaTABLE}).
+
+Pour commencer, nous travaillerons sur une DB simple.
+Copier coller ce qui suit dans un fichier (par exemple nommé \texttt{init.sql}) et ouvrez un terminal dans le dossier le contenant :
+
+\begin{verbatim}
+-- CREATE
+CREATE TABLE `personnes` (
+    id INTEGER PRIMARY KEY,
+    nom VARCHAR,
+    prenom VARCHAR,
+    surnom VARCHAR,
+    titre VARCHAR,
+    domicile TEXT,
+    enfants INTEGER NOT NULL DEFAULT 0,
+    en_couple INTEGER,
+	UNIQUE (id)
+);
+
+-- Just fill it ;)
+INSERT INTO `personnes` (
+    nom,
+    prenom,
+    surnom,
+    titre,
+    domicile,
+    enfants,
+    en_couple
+) VALUES (
+    'Atréides',
+    'Leto',
+    '',
+    'Duc',
+    'Arrakis',
+    2,
+    1);
+INSERT INTO `personnes` (
+    nom,
+    prenom,
+    surnom,
+    titre,
+    domicile,
+    enfants,
+    en_couple
+) VALUES (
+    'Atréides',
+    'Paul',
+    "Muad'dib",
+    'Duc',
+    'Arrakis',
+    0,
+    0);
+INSERT INTO `personnes` (
+    nom,
+    prenom,
+    surnom,
+    titre,
+    domicile,
+    enfants,
+    en_couple
+) VALUES (
+    'Atréides',
+    'Jessica',
+    '',
+    'Dame',
+    'Arrakis',
+    2,
+    1);
+INSERT INTO `personnes` (
+    nom,
+    prenom,
+    surnom,
+    titre,
+    domicile,
+    enfants,
+    en_couple
+) VALUES (
+    '',
+    'Gandalf',
+    'Le Gris',
+    '',
+    'Terre du Milieu',
+    0,
+    0);
+INSERT INTO `personnes` (
+    nom,
+    prenom,
+    surnom,
+    titre,
+    domicile,
+    enfants,
+    en_couple
+) VALUES (
+    'Dent',
+    'Arthur',
+    '',
+    '',
+    'Terre',
+    0,
+    0);
+INSERT INTO `personnes` (
+    nom,
+    prenom,
+    surnom,
+    titre,
+    domicile,
+    enfants,
+    en_couple
+) VALUES (
+    'Prefect',
+    'Ford',
+    '',
+    '',
+    'Betlegeuse 5',
+    0,
+    0);
+INSERT INTO `personnes` (
+    nom,
+    prenom,
+    surnom,
+    titre,
+    domicile,
+    enfants,
+    en_couple
+) VALUES (
+    '',
+    'Arya',
+    "Tueuse d'Ombre",
+    'Dröttning',
+    'Ellesmera 5',
+    0,
+    0);
+INSERT INTO `personnes` (
+    nom,
+    prenom,
+    surnom,
+    titre,
+    domicile,
+    enfants,
+    en_couple
+) VALUES (
+    '',
+    'Eragon',
+    "Tueur d'Ombre",
+    'Finiarel',
+    'Alagaesia',
+    0,
+    0);
+INSERT INTO `personnes` (
+    nom,
+    prenom,
+    surnom,
+    titre,
+    domicile,
+    enfants,
+    en_couple
+) VALUES (
+    '',
+    'Brom',
+    '',
+    '',
+    'Alagaesia',
+    1,
+    0);
+\end{verbatim}
+
+
+Enseuite, lancez la commande suivante :
+
+\begin{verbatim}
+$ sqlite3 -init init.sql db.sqlite3
+\end{verbatim}
+
+SQLite devrait vous annoncer qu'il charge les ressources depuis le fichier et vous amener dans un {\it prompt} une fois le chargement terminé, tapez alors {\verb .quit} pour en sortir.
+La base est le fichier \texttt{db.sqlite3} qui a été créé.
+
+Vous avez dans ce que vous avez copié/collé une suite de requetes SQL permettant de créer une table nommée \texttt{personnes} et d'y insérer plusieurs lignes.
+Cette table contient des informations sur divers personnage de la littérature fantastique et SF (je remercie d'ailleurs les auteurs\footnote{Frank Herbert, J.R.R. Tolkien, Douglas Adams et Christopher Paolini} d'avoir écrit les bouquins où ces personnages prennent place).
+
+Les informations présentes dans cette table sont :
+
+\begin{itemize}
+    \item le nom du personnage (champ \texttt{nom})
+    \item son prénom (champ \texttt{prenom})
+    \item son surnom (champ \texttt{surnom})
+    \item son titre (champ \texttt{titre})
+    \item son domicile (champ \texttt{domicile})
+    \item le nombre de ses enfants s'il en a 0 sinon (champ \texttt{enfants})
+    \item s'il est en couple (champ \texttt{en\_couple}, 1 pour oui et 0 pour non)
+\end{itemize}
+
+Les commandes SQL dans la suite sont à lancer dans SQLite, sur la base.
+Pour cela ouvrez la base avec :
+
+\begin{verbatim}
+$ sqlite3 db.sqlite3
+\end{verbatim}
+
+SQLite devrait alors vous afficher quelque chose comme ça :
+
+\begin{verbatim}
+SQLite version 3.7.13 2012-06-11 02:05:22
+Enter ".help" for instructions
+Enter SQL statements terminated with a ";"
+sqlite>
+\end{verbatim}
+
+les commandes seront à taper à la suite de la denière ligne (le {\it prompt} de SQLite).
+
+% La syntaxe de SELECT {{{
+\subsection{La syntaxe de \texttt{SELECT}}
+
+Voilà un exemple simple permettant de récuperer tous les champs de toutes les ligne de la table \texttt{personnes} :
+
+\begin{verbatim}
+SELECT * FROM personnes;
+\end{verbatim}
+
+Vous devriez voir apparaitre ceci :
+
+\begin{verbatim}
+1|Atréides|Leto||Duc|Arrakis|2|1
+2|Atréides|Paul|Muad'dib|Duc|Arrakis|0|0
+3|Atréides|Jessica||Dame|Arrakis|2|1
+4||Gandalf|Le Gris||Terre du Milieu|0|0
+5|Dent|Arthur|||Terre|0|0
+6|Prefect|Ford|||Betlegeuse 5|0|0
+7||Arya|Tueuse d'Ombre|Dröttning|Ellesmera 5|0|0
+8||Eragon|Tueur d'Ombre|Finiarel|Alagaesia|0|0
+9||Brom|||Alagaesia|1|0
+\end{verbatim}
+
+Expliquons un peu la commande :
+
+\begin{verbatim}
+-- en SQL, les commentaires sont sur une ligne complète,
+-- commençant par --
+
+-- Explication de la commande :
+
+-- Sélectionner tous les champs
+SELECT *
+-- depuis la table personnes
+FROM personnes
+-- le point virgule est obligatoire en fin de requete
+;
+\end{verbatim}
+
+% }}}
+% Limiter les champs à récupérer {{{
+\subsection{Limiter les champs à récupérer}
+
+On a pas toujours besoin de tous les champs d'une table, ainsi, il y a un moyen de limiter la requète aux champs nous intéressant.
+
+Admettons, que l'on veuille récupérer le prénom et le surnom de tous ceux dans la base, on utilisera alors :
+
+\begin{verbatim}
+SELECT prenom,surnom FROM personnes;
+\end{verbatim}
+
+Et on obtiendra l'affichage suivant :
+
+\begin{verbatim}
+Leto|
+Paul|Muad'dib
+Jessica|
+Gandalf|Le Gris
+Arthur|
+Ford|
+Arya|Tueuse d'Ombre
+Eragon|Tueur d'Ombre
+Brom|
+\end{verbatim}
+
+Il est ainsi possible de donner une liste de champs à récupérer en séparant leur nom par des virgules et en les mettant après \texttt{SELECT}.
+Pour traduire, on pourrait écrire :
+
+\begin{verbatim}
+SELECT {quoi} FROM {quelle table};
+\end{verbatim}
+
+Notez enfin que l'ordre des champs est important, ainsi, si on lance :
+
+\begin{verbatim}
+SELECT surnom,prenom FROM personnes;
+\end{verbatim}
+
+on aura :
+
+\begin{verbatim}
+|Leto
+Muad'dib|Paul
+|Jessica
+Le Gris|Gandalf
+|Arthur
+|Ford
+Tueuse d'Ombre|Arya
+Tueur d'Ombre|Eragon
+|Brom
+\end{verbatim}
+
+% }}}
+% La clause WHERE {{{
+\subsection{La clause \texttt{WHERE}}
+
+C'est bien de limiter les champs à récupérer mais parfois, on cherche à récupérer tous les champs des lignes selon un ou plusieurs critères.
+
+\texttt{WHERE} permet d'énoncer des conditions et de les combiner entre elles.
+
+Par exemple, si on cherche à récupérer le prénom et le surnom de tous ceux ayant un surnom, on écrira :
+
+\begin{verbatim}
+SELECT prenom,surnom FROM personnes WHERE surnom!='';
+\end{verbatim}
+
+Ce qui pourrait se traduire par :
+\begin{quote}
+Selectionner prenom et surnom des champs de la table personnes si surnom n'est pas une chaine vide
+\end{quote}
+
+Cette commande produira l'affichage suivant :
+\begin{verbatim}
+Paul|Muad'dib
+Gandalf|Le Gris
+Arya|Tueuse d'Ombre
+Eragon|Tueur d'Ombre
+\end{verbatim}
+
+On peut utiliser plusieurs symboles pour les tests :
+
+\begin{description}
+    \item[=] égalité
+    \item[!=] inégalité
+    \item[>] supériorité
+    \item[<] infériorité
+    \item[>=] supériorité ou égalité
+    \item[<=] infériorité ou égalité
+\end{description}
+
+\sep
+\paragraph{Exercice}
+Essayez d'écrire une requète pour récupérer le titre puis le prénom et enfin le nom de toute la famille Atréides.
+
+\underline{Réponse :}
+
+\begin{verbatim}
+SELECT titre,prenom,nom FROM personnes WHERE nom='Atréides';
+\end{verbatim}
+
+\paragraph{Exercice}
+Essayez d'écrire une requète pour récupérer le prénom de tous ceux ayant au moins un enfant.
+
+\underline{Réponse :}
+
+\begin{verbatim}
+SELECT prenom FROM personnes WHERE enfant>=1;
+\end{verbatim}
+
+\paragraph{Exercice}
+Essayez d'écrire une requète pour récupérer le prénom de tous ceux ayant plus d'un enfant.
+
+\underline{Réponse :}
+
+\begin{verbatim}
+SELECT prenom FROM personnes WHERE enfant>1;
+\end{verbatim}
+
+% }}}
+% SQL a les BOOLs {{{
+\subsection{SQL a les \texttt{BOOL}s}
+
+Ahem. Bon, admettons, il y aura au moins eu deux blagues vaseuses...
+
+Maintenant qu'on sait faire de jolies requètes avec des morceaux de \texttt{WHERE} dedans, essayons de combiner un peu.
+
+Lancez ces deux requètes et observez les résultats.
+
+\begin{verbatim}
+SELECT prenom FROM personnes WHERE titre!='' AND surnom !='';
+SELECT prenom FROM personnes WHERE titre!='' OR surnom !='';
+\end{verbatim}
+
+Que pouvez vous en déduire ?
+
+Le mot clé \texttt{OR} réalise un {\bfseries ou logique} entre les conditions de part et d'autre, pour \texttt{AND}, il s'agit d'un {\bfseries et logique}.
+
+Notez qu'on peut augmenter les combinaisons :
+
+\begin{verbatim}
+SELECT prenom,enfants
+FROM personnes
+WHERE (titre!='' OR surnom !='') AND enfants!=0;
+\end{verbatim}
+
+nous renverra ainsi :
+
+\begin{verbatim}
+Leto|2
+Jessica|2
+\end{verbatim}
+
+Pour traduire, voilà ce que nous avons demandé :
+
+\begin{quote}
+Sélectionner prenom et nombre d'enfants de tout ceux ayant des enfants et soit un surnom, soit un titre, ou les deux.
+\end{quote}
+
+Remarquez que Brom a un enfant mais que sans titre ni surnom, il ne peut apparaitre dans cette liste.
+Vous pouvez le vérifier avec la requète suivante :
+
+\begin{verbatim}
+SELECT prenom,titre,surnom,enfants FROM personnes WHERE prenom="Brom";
+\end{verbatim}
+
+% }}}
+% ORDER BY : trier les résultats {{{
+\subsection{\texttt{ORDER BY} : trier les résultats}
+
+Il peut être intéressant de trier les résultats d'une requète.
+
+Pour cela il y a \texttt{ORDER BY} ainsi que :
+
+\begin{description}
+    \item[\texttt{ASC}] Tri ascendant (défaut)
+    \item[\texttt{DESC}] Tri descendant
+\end{description}
+
+Ainsi pour avoir la liste des prénoms de toutes les personnes dans l'ordre anti-alphabétique, on écrira :
+
+\begin{verbatim}
+SELECT prenom FROM personnes ORDER BY prenom DESC;
+
+-- pour l'order alphabétique :
+SELECT prenom FROM personnes ORDER BY prenom ASC;
+-- ou :
+SELECT prenom FROM personnes ORDER BY prenom;
+\end{verbatim}
+
+% }}}
+% Limiter le nombre de résultats avec LIMIT {{{
+\subsection{Limiter le nombre de résultats avec \texttt{LIMIT}}
+
+Nous savons maintenabt choisir les champs à récupérer, trier et placer des critères.
+
+Il nous reste à apprendre à limiter le nombre de résultats : c'est là qu'intervient le mot clé \texttt{LIMIT}.
+
+La syntaxe est simple :
+
+\begin{verbatim}
+    <requete> LIMIT [OFFSET,] NOMBRE;
+\end{verbatim}
+
+\texttt{LIMIT} prend a deux arguments possibles : le nombre de résultats à envoyer et un offset, le nombre de résultats
+à bloquer avant de commencer le compte, voir la figure~\ref{limit}.
+
+\begin{figure}
+\begin{verbatim}
++----------+     +------------+
+| Res. 0   |     |            |
++----------+     |            |
+| Res. 1   |     |            |
++----------+     |            |
+| Res. 2   |     |            |
++----------+     |            |
+| Res. 3   |     |            |
++----------+     |            |     +----------+
+| Res. 4   |     |            |     | Res. 4   |
++----------+     |            |     +----------+
+| Res. 5   | --> | LIMIT 4,2  | --> | Res. 5   |
++----------+     |            |     +----------+
+| Res. 6   |     |            |
++----------+     |            |
+| Res. 7   |     |            |
++----------+     |            |
+| Res. 8   |     |            |
++----------+     |            |
+| Res. 9   |     |            |
++----------+     |            |
+| Res. 10  |     |            |
++----------+     |            |
+| Res. 11  |     |            |
++----------+     +------------+
+\end{verbatim}
+\caption{Principe du LIMIT}
+\label{limit}
+\end{figure}
+
+Si l'offset est nul (que le décompte commence au premier résultat, la partie avant la virgule peut être omise.
+Pour les 10 premiers résultats d'une requète, on écrira :
+
+\begin{verbatim}
+<requete> LIMIT 10;
+\end{verbatim}
+
+
+\paragraph{Exercice}
+Essayez d'écrire une requète pour récupérer les ids des trois premières personnes dans l'ordre alphabétique des prénoms.
+
+\underline{Réponse :}
+
+\begin{verbatim}
+SELECT id FROM personnes ORDER BY prenom LIMIT 3;
+\end{verbatim}
+
+% }}}
+% }}}
+% Ajouter des lignes avec INSERT {{{
+\section{Ajouter des lignes avec \texttt{INSERT}}
+
+Dans la suite des commandes du \texttt{CRUD}, \texttt{INSERT} est incontournable.
+
+Pour l'instant, nous avons travaillé à récupérer des données dans une base existante.
+C'est bien, mais à un moment, il nous a fallu remplir cette DB.
+Pour comprendre un peu mieux le \texttt{INSERT}, regardons un des blocs SQL que je vous ai donné au début pour la
+création et le remplissage initial de la base :
+
+\begin{verbatim}
+INSERT INTO `personnes` (
+    nom,
+    prenom,
+    surnom,
+    titre,
+    domicile,
+    enfants,
+    en_couple
+) VALUES (
+    'Atréides',
+    'Leto',
+    '',
+    'Duc',
+    'Arrakis',
+    2,
+    1);
+\end{verbatim}
+
+Ce bloc montre bien la structure du \texttt{INSERT} :
+
+\begin{verbatim}
+INSERT INTO nom_de_la_table (
+    liste,
+    de,
+    champs
+) VALUES (
+    'valeurs',
+    'qui',
+    'correspondent');
+\end{verbatim}
+
+Bien sûr, la requête peut être écrite sur une seule ligne \texttt{;)}.
+
+Plusieurs choses à noter :
+
+\begin{itemize}
+    \item le nombre de champs et de valeurs doivent être les même sinon, une erreur se produira
+    \item les backquotes présentes autour du nom de la table dans le premier code permet de forcer l'interprétation
+        comme une chaine faisant partie de la commande (utile dans certains cas).
+    \item le champ \texttt{id} présent dans la définition de la table n'est pas renseigné ici mais peut importe : il
+        s'auto incrémente
+    \item dans le cas d'ajout automatisés (via un script, à partir d'une entrée de l'utilisateur par exemple) il faut
+        veiller à ce qu'aucune quote non échappée ne subsiste dans les chaines des valeurs. Il s'agit d'une faille de
+        sécurité courante permettant de réaliser des injections et d'altérer la base de donnée. La plupart des langages
+        proposent des fonctions pour réaliser ce travail.
+\end{itemize}
+
+\subsection{Rapide retour sur les problèmes de sécurité}
+
+Dans le cas de scripts PHP par exemple, le fait de laisser des chaines non échappés peut suffir à créer une bréche
+énorme dans l'application complète. Vous vous exposez alors à diverses fuites de données et risques de modification.
+
+Pour cous entrainer, essayez d'ajouter quelques personnes à notre base. Essayez ensuite de selectionner les nouveaux
+champs via des requetes.j
+% }}}
+% DELETE : supprimer des enregistrements {{{
+\section{\texttt{DELETE} : supprimer des enregistrements}
+
+Nous connaissons maintenant la base de l'ajout et récupération de données, voyons comment les supprimer.
+
+Le mot clé est \texttt{DELETE} et il travaille forcément sur la ligne complète.
+
+On peut l'associer aux diverses clauses que l'on a vu plus tot pour cibler son action.
+
+Ainsi :
+
+\begin{verbatim}
+DELETE FROM personnes WHERE enfants=0;
+\end{verbatim}
+
+Supprimera tous les enregistrements de personnes n'ayant pas d'enfant.
+
+Pour vous entrainer, essayer de supprimer des éléments selon divers critères.
+Recréez la base comme indiqué au début du document une fois que vous aurez bien pris \texttt{DELETE} en main.
+
+% }}}
+% Mise à jour : UPDATE time ! {{{
+\section{Mise à jour : \texttt{UPDATE} time !}
+
+Même si le fait de récupèrer, supprimer et réinsérer un enregistrement suffit théoriquement à le "mettre à jour", c'est
+une technique particulièrement sale, surtout quand on se souvient que \texttt{UPDATE} est facile à maitriser.
+
+La syntaxe générale est la suivante :
+
+\begin{verbatim}
+UPDATE nom_de_la_table SET nom_du_champ=valeur <clauses>;
+\end{verbatim}
+
+Où \texttt{<clauses>} est à replacer par des \texttt{WHERE} et autres trucs.
+
+On pourrait par exemple envisager de rajouter le titre "parent" à toutes les personnes ayant des enfants mais pas de
+titre. Cela ne devrait affecter que Brom :
+
+\begin{verbatim}
+sqlite> SELECT id,prenom,enfants,titre FROM personnes WHERE prenom='Brom';
+9|Brom|1|
+sqlite> UPDATE personnes SET titre='parent' WHERE enfants!=0 AND titre='';
+sqlite> SELECT id,prenom,enfants,titre FROM personnes WHERE prenom='Brom';
+9|Brom|1|parent
+\end{verbatim}
+
+\texttt{UPDATE} est donc un excellent moyen de modifier les enregistrements et pour peu que vous maitrisiez bien les
+clauses de sélection, l'utilisation ne devrait poser aucun problème.
+
+% }}}
+% Création : CREATE {{{
+\section{Création : \texttt{CREATE}}
+
+La création de tables et de DB est soumise à plusieurs contraintes. La plus importante est que les types primitifs
+peuvent varier selon les SGDB et poser ainsi des problèmes de compatibilité.
+% Création de DATABASE {{{
+\subsection{Création de \texttt{DATABASE}}
+
+Nous ne rentrerons pas dans les aspects complets de la chose, il faudrait un livre.
+
+Sachez simplement que la plus simple expression pour créer une base de données est :
+
+\begin{verbatim}
+CREATE DATABASE nom_de_la_db;
+\end{verbatim}
+
+Pour SQLite, c'est un jeu d'enfant : un même fichier ne peut contenir qu'une seule et unique base.
+
+% }}}
+% Création de TABLE {{{
+\subsection{Création de \texttt{TABLE}}
+
+La création de table est un peu plus intéressante, et même si elle est aussi sujette à variation, elle reste plus utile
+que la création de DB seules.
+
+Là encore on utilise :
+
+\begin{verbatim}
+CREATE TABLE nom_de_la_table
+-- ....
+\end{verbatim}
+
+
+mais cette fois, on fait suivre l'assertion d'un groupe parenthèsé décrivant les champs inclus (nom, type et attributs).
+
+Par exemple, pour la DB utilisée tout au long du document :
+
+\begin{verbatim}
+CREATE TABLE `personnes` (
+    id INTEGER PRIMARY KEY,
+    nom VARCHAR,
+    prenom VARCHAR,
+    surnom VARCHAR,
+    titre VARCHAR,
+    domicile TEXT,
+    enfants INTEGER NOT NULL DEFAULT 0,
+    en_couple INTEGER,
+	UNIQUE (id)
+);
+\end{verbatim}
+
+\texttt{VARCHAR} désigne un champ destiné à contenir des caractères, \texttt{INTEGER} des entiers.
+Pour \texttt{TEXT} il s'agit de texte plus long, souvent avec des retour chariot.
+Sachez qu'il existe aussi \texttt{DATE}, \texttt{DATETIME}, pour les dates (avec ou sans heures).
+
+Enfin, plusieurs "tailles" existent dans certains SGDB, MySQL propose ainsi : \texttt{TINYINT}, \texttt{MEDIUMINT},
+\texttt{BIGINT}, etc...
+
+Dans une application utilisant MySQL, j'ai utilisé le schéma suivant :
+
+\begin{verbatim}
+create database if not exists dataporn;
+create table if not exists `dataporn`.`demande` (
+    -- general
+    id bigint not null auto_increment,
+    valide tinyint(1) default 0,
+
+    -- perso
+    nom varchar(255) not null,
+    email varchar(255) not null,
+    adresse text not null,
+    note text,
+
+    -- stickers
+    qte mediumint not null,
+    prix float not null,
+
+    -- hackerspaces et repartition
+    adhaum tinyint(1) not null default 0,
+    adipefix tinyint(1) not null default 0,
+    montant_haum float not null,
+    montant_ipefix float not null,
+
+    -- primary key
+    primary key(id)
+);
+\end{verbatim}
+
+Ainsi vous pouvez voir plusieurs choses :
+
+\begin{itemize}
+    \item Les commentaires sont utiles (on le répétera jamais assez)
+    \item la clause \texttt{IF NOT EXIST} permet de poser une condition à la création d'une DB/table (et d'éviter les
+        erreurs)
+    \item \texttt{TINYINT(1)} est utilisé en lieu et place du type \texttt{BOOL} proposé par MySQL
+    \item la déclaration du champ auto-incrémenté (\texttt{id}) est différent entre les deux SGDB.
+    \item les majuscules dans les requètes (pour les mots-clés) ne sont pas du tout obligatoire (mais c'est plus clair
+        quand on débute).
+    \item pour désigner la table \texttt{demande} de la DB \texttt{dataporn} j'ai utilisé \texttt{`dataporn`.`demande`}.
+        Ici, les backquotes prennent tout leur sens.
+\end{itemize}
+
+Si vous vous demandez pour qu'elle application est ce schéma : il s'agit d'un moyen potentiel de financer les
+hackerspaces du Mans et d'Angers\http{https://github.com/manudwarf/dataporn}.
+
+% }}}
+% }}}
+
+\end{document}
