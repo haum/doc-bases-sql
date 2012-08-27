@@ -1,0 +1,4 @@
+*.aux
+*.log
+*.sqlite3
+*.toc
